@@ -1,0 +1,95 @@
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import api from "../../services/api";
+
+// ─── Thunks ───────────────────────────────────────────────────────────────────
+export const register = createAsyncThunk("auth/register", async (data, { rejectWithValue }) => {
+  try {
+    const res = await api.post("/auth/register", data);
+    localStorage.setItem("token", res.data.token);
+    return res.data.user;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || "Registration failed");
+  }
+});
+
+export const login = createAsyncThunk("auth/login", async (data, { rejectWithValue }) => {
+  try {
+    const res = await api.post("/auth/login", data);
+    localStorage.setItem("token", res.data.token);
+    return res.data.user;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || "Login failed");
+  }
+});
+
+export const logout = createAsyncThunk("auth/logout", async (_, { rejectWithValue }) => {
+  try {
+    await api.post("/auth/logout");
+    localStorage.removeItem("token");
+  } catch (err) {
+    localStorage.removeItem("token");
+    return rejectWithValue(err.response?.data?.message || "Logout failed");
+  }
+});
+
+export const getMe = createAsyncThunk("auth/getMe", async (_, { rejectWithValue }) => {
+  try {
+    const res = await api.get("/auth/me");
+    return res.data.user;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || "Session expired");
+  }
+});
+
+export const updateProfile = createAsyncThunk("auth/updateProfile", async (data, { rejectWithValue }) => {
+  try {
+    const res = await api.put("/auth/profile", data);
+    return res.data.user;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || "Update failed");
+  }
+});
+
+// ─── Slice ────────────────────────────────────────────────────────────────────
+const authSlice = createSlice({
+  name: "auth",
+  initialState: {
+    user:        null,
+    token:       localStorage.getItem("token") || null,
+    loading:     false,
+    error:       null,
+    initialized: false,
+  },
+  reducers: {
+    clearError: (state) => { state.error = null; },
+    setOnlineUsers: (state, action) => {
+      // Handled at component level via socket context
+    },
+  },
+  extraReducers: (builder) => {
+    // Register
+    builder
+      .addCase(register.pending,   (state) => { state.loading = true; state.error = null; })
+      .addCase(register.fulfilled, (state, action) => { state.loading = false; state.user = action.payload; })
+      .addCase(register.rejected,  (state, action) => { state.loading = false; state.error = action.payload; });
+    // Login
+    builder
+      .addCase(login.pending,   (state) => { state.loading = true; state.error = null; })
+      .addCase(login.fulfilled, (state, action) => { state.loading = false; state.user = action.payload; })
+      .addCase(login.rejected,  (state, action) => { state.loading = false; state.error = action.payload; });
+    // Logout
+    builder
+      .addCase(logout.fulfilled, (state) => { state.user = null; state.token = null; });
+    // GetMe
+    builder
+      .addCase(getMe.pending,   (state) => { state.loading = true; })
+      .addCase(getMe.fulfilled, (state, action) => { state.loading = false; state.user = action.payload; state.initialized = true; })
+      .addCase(getMe.rejected,  (state) => { state.loading = false; state.user = null; state.token = null; state.initialized = true; localStorage.removeItem("token"); });
+    // Update profile
+    builder
+      .addCase(updateProfile.fulfilled, (state, action) => { state.user = action.payload; });
+  },
+});
+
+export const { clearError } = authSlice.actions;
+export default authSlice.reducer;
