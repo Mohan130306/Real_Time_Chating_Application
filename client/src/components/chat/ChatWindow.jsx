@@ -84,6 +84,32 @@ export default function ChatWindow() {
       const msg = result.payload;
       // Emit via socket so receiver gets it in real-time
       socket?.emit("sendMessage", msg);
+      if (activeChat.type === "Chat") {
+        const receiverId = activeChat.data.participants?.find((p) => p._id !== user._id)?._id;
+        if (receiverId) {
+          socket?.emit("sendNotification", {
+            receiverId,
+            notification: {
+              type: "message",
+              chatId: activeChat.id,
+              message: text || "Sent a message",
+            },
+          });
+        }
+      } else {
+        activeChat.data.members?.forEach((member) => {
+          if (member._id !== user._id) {
+            socket?.emit("sendNotification", {
+              receiverId: member._id,
+              notification: {
+                type: "message",
+                chatId: activeChat.id,
+                message: `${user.name} sent a new message`,
+              },
+            });
+          }
+        });
+      }
       dispatch(updateChatLastMessage({ chatId: activeChat.id, message: msg, type: activeChat.type }));
     }
   }, [activeChat, socket, dispatch]);

@@ -7,6 +7,7 @@ import Spinner from "../shared/Spinner";
 export default function ChatList({ filter }) {
   const dispatch = useDispatch();
   const { chats, groups, activeChat, loading } = useSelector((s) => s.chat);
+  const { user } = useSelector((s) => s.auth);
 
   const combined = [
     ...chats.map((c)  => ({ ...c, _type: "Chat" })),
@@ -20,7 +21,7 @@ export default function ChatList({ filter }) {
   const filtered = filter
     ? combined.filter((c) => {
         const name = c._type === "Chat"
-          ? (c.participants?.find((p) => p._id !== activeChat?.data?.participants?.[0]?._id)?.name || "")
+          ? c.participants?.find((p) => p._id !== user?._id)?.name || ""
           : c.groupName;
         return name.toLowerCase().includes(filter.toLowerCase());
       })

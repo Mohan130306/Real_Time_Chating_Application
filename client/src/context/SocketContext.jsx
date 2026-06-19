@@ -7,12 +7,14 @@ import {
   clearTyping,
   updateMessage,
   softDeleteMessage,
+  markMessagesSeenLocally,
 } from "../redux/slices/messageSlice";
 import {
   setOnlineUsers,
   updateChatLastMessage,
   incrementUnread,
 } from "../redux/slices/chatSlice";
+import { addNotification } from "../redux/slices/notificationSlice";
 import toast from "react-hot-toast";
 
 const SocketContext = createContext(null);
@@ -65,6 +67,11 @@ export const SocketProvider = ({ children }) => {
       }
     });
 
+    socket.on("notification", (notification) => {
+      dispatch(addNotification(notification));
+      toast.success(notification.message || "New notification", { position: "top-right" });
+    });
+
     // ── Typing ────────────────────────────────────────────────────────────
     socket.on("typing", ({ chatId, userId }) => {
       dispatch(setTyping({ chatId, userId }));
@@ -76,7 +83,7 @@ export const SocketProvider = ({ children }) => {
 
     // ── Seen ──────────────────────────────────────────────────────────────
     socket.on("messageSeen", ({ chatId }) => {
-      // Could update seen status here
+      dispatch(markMessagesSeenLocally(chatId));
     });
 
     socket.on("messageReaction", ({ chatId, message }) => {

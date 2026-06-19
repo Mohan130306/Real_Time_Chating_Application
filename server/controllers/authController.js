@@ -126,13 +126,39 @@ const getMe = async (req, res, next) => {
 // @access  Private
 const updateProfile = async (req, res, next) => {
   try {
-    const { name, bio, profilePic } = req.body;
+    const { name, bio, profilePic, currentPassword, newPassword } = req.body;
 
-    const updatedUser = await User.findByIdAndUpdate(
-      req.user._id,
-      { name, bio, profilePic },
-      { new: true, runValidators: true }
-    );
+    const user = await User.findById(req.user._id).select("+password");
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found." });
+    }
+
+    if (newPassword) {
+      if (!currentPassword) {
+        return res.status(400).json({
+          success: false,
+          message: "Current password is required to update password.",
+        });
+      }
+
+      const isMatch = await user.comparePassword(currentPassword);
+      if (!isMatch) {
+        return res.status(400).json({
+          success: false,
+          message: "Current password is incorrect.",
+        });
+      }
+
+      user.password = newPassword;
+    }
+
+    if (name !== undefined) user.name = name;
+    if (bio !== undefined) user.bio = bio;
+    if (profilePic !== undefined) user.profilePic = profilePic;
+
+    await user.save();
+
+    const updatedUser = await User.findById(req.user._id).select("-password");
 
     res.status(200).json({
       success: true,

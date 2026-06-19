@@ -1,6 +1,7 @@
 const Message = require("../models/Message");
 const Chat = require("../models/Chat");
 const Group = require("../models/Group");
+const Notification = require("../models/Notification");
 const cloudinary = require("../config/cloudinary");
 
 // @desc    Get messages for a chat
@@ -80,6 +81,40 @@ const sendMessage = async (req, res, next) => {
         updatedAt: new Date(),
       });
     }
+
+    const recipients = [];
+    if (chatType === "Chat") {
+      const chat = await Chat.findById(chatId).select("participants");
+      const recipientId = chat?.participants?.find(
+        (id) => id.toString() !== req.user._id.toString()
+      );
+      if (recipientId) recipients.push(recipientId);
+    } else {
+      const group = await Group.findById(chatId).select("members");
+      if (group?.members?.length) {
+        recipients.push(
+          ...group.members.filter(
+            (id) => id.toString() !== req.user._id.toString()
+          )
+        );
+      }
+    }
+
+    const notificationMessage = text
+      ? `${req.user.name}: ${text}`
+      : "Sent a new message";
+
+    await Promise.all(
+      recipients.map((recipient) =>
+        Notification.create({
+          recipient,
+          sender: req.user._id,
+          type: "message",
+          chatId,
+          message: notificationMessage,
+        })
+      )
+    );
 
     const populatedMessage = await Message.findById(message._id).populate(
       "senderId",

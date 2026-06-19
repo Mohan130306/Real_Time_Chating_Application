@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const Notification = require("../models/Notification");
 
 // Map of userId -> socketId for online tracking
 const activeUsers = new Map();
@@ -81,10 +82,24 @@ const socketHandler = (io) => {
     });
 
     // ─── Notifications ────────────────────────────────────────────────────────
-    socket.on("sendNotification", ({ receiverId, notification }) => {
-      const receiverSocketId = activeUsers.get(receiverId);
-      if (receiverSocketId) {
-        io.to(receiverSocketId).emit("notification", notification);
+    socket.on("sendNotification", async ({ receiverId, notification }) => {
+      try {
+        if (!receiverId || !notification) return;
+
+        const newNotification = await Notification.create({
+          recipient: receiverId,
+          sender: socket.user._id,
+          type: notification.type || "message",
+          chatId: notification.chatId,
+          message: notification.message || "You have a new notification",
+        });
+
+        const receiverSocketId = activeUsers.get(receiverId);
+        if (receiverSocketId) {
+          io.to(receiverSocketId).emit("notification", newNotification);
+        }
+      } catch (error) {
+        console.error("Failed to create notification:", error.message);
       }
     });
 
